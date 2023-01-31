@@ -64,6 +64,10 @@ layout
 	#wrapper.boxed {
 		width: 1230px;
 	}
+	.row.row-form {
+		display: flex;
+		align-items: flex-end;
+	}
 }
 
 /* ===========
@@ -1508,7 +1512,7 @@ a.scrollup i:hover {
 }
 
 @-webkit-keyframes pulse {    
-    0 {
+    0% {
         -webkit-transform: scale(1);
         transform: scale(1);
     }
@@ -1525,7 +1529,7 @@ a.scrollup i:hover {
 }
 
 @-moz-keyframes pulse {    
-    0 {
+    0% {
         -moz-transform: scale(1);
         transform: scale(1);
     }
