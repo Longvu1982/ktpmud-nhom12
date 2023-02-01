@@ -1,11 +1,23 @@
 import {
-  getAuth,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  onAuthStateChanged,
-  signOut,
-  updateProfile,
+	getAuth,
+	createUserWithEmailAndPassword,
+	signInWithEmailAndPassword,
+	onAuthStateChanged,
+	signOut,
+	updateProfile,
 } from "https://www.gstatic.com/firebasejs/9.16.0/firebase-auth.js";
+import {
+	collection,
+	getDocs,
+	getDoc,
+	addDoc,
+	doc,
+	setDoc,
+	updateDoc,
+	arrayUnion,
+	serverTimestamp,
+} from "https://www.gstatic.com/firebasejs/9.16.0/firebase-firestore.js";
+import { db } from "./firebase.js";
 
 const $ = document.querySelector.bind(document);
 const $$ = document.querySelectorAll.bind(document);
@@ -15,6 +27,18 @@ let isBooking = false;
 let isSignIn = true;
 
 renderFormWhenLoginSuccess();
+
+const doctors = [
+	{
+		"Thần kinh": ["Adam Taylor"],
+	},
+	{
+		"Tâm lí": ["Alice Grue"],
+	},
+	{
+		"Tim mạch": ["Joseph Murphy", "Alison Davis"],
+	},
+];
 
 // $("form").addEventListener("submit", (e) => {
 // 	// get input value
@@ -27,9 +51,9 @@ renderFormWhenLoginSuccess();
 // });
 
 function renderFormWhenLoginSuccess() {
-  let html = "";
-  if (!auth.currentUser) {
-    html = `
+	let html = "";
+	if (!auth.currentUser) {
+		html = `
     <div class="wow fadeInRight" data-wow-duration="2s" data-wow-delay="0.2s">
       <div class="panel panel-skin">
         <div class="panel-heading">             
@@ -73,7 +97,7 @@ function renderFormWhenLoginSuccess() {
               </div>
               </div>
   
-              <input type="submit" value="Đồng ý" class="btn btn-skin btn-block btn-lg btn-form1" />
+              <input type="button" value="Đồng ý" class="btn btn-skin btn-block btn-lg btn-form1" />
   
               <p class="lead-footer" style="margin-bottom: 10px">* Chúng tôi sẽ liên hệ cho bạn qua email hoặc SĐT</p>
               
@@ -89,11 +113,10 @@ function renderFormWhenLoginSuccess() {
           </div>
         </div>
       </div>`;
-  } else {
-    console.log(auth.currentUser);
-    if (auth.currentUser.displayName) {
-      if (!isBooking)
-        html = `
+	} else {
+		if (auth.currentUser.displayName) {
+			if (!isBooking)
+				html = `
       <div class="wow fadeInRight" data-wow-duration="2s" data-wow-delay="0.2s">
       <div class="panel panel-skin">
         <div class="panel-heading">
@@ -108,20 +131,21 @@ function renderFormWhenLoginSuccess() {
               <p style = "padding: 0px 15px; font-size: 18px;">Xin chào <label style = "font-size: 20px">${auth.currentUser.displayName}<label/></p> 
               </div>
   
-              <input type="submit" value="Tiếp tục" class="btn btn-skin btn-block btn-lg btn-form3" />
+              <input type="button" value="Tiếp tục" class="btn btn-skin btn-block btn-lg btn-form3" />
   
               <span
                 style="font-size: 16px; color: rgb(12, 94, 94); float: right; margin-top: 10px; cursor: pointer"
                 class="switch-btn-logout"
                 href="#"
-                >Đăng suất</span
+                >Đăng xuất</span
               >
             </form>
           </div>
         </div>
       </div>
       `;
-      else html = `
+			else
+				html = `
       <div class="wow fadeInRight" data-wow-duration="2s" data-wow-delay="0.2s">
         <div class="panel panel-skin">
           <div class="panel-heading">             
@@ -136,7 +160,7 @@ function renderFormWhenLoginSuccess() {
                   <div class="form-group">
                     <label for="#date">Ngày</label>
                     <input
-                      type="date"
+                      type="datetime-local"
                       name="date"
                       id="date"
                       class="form-control input-md"
@@ -145,39 +169,60 @@ function renderFormWhenLoginSuccess() {
                 </div>
                 <div class="col-xs-6 col-sm-6 col-md-6">
                   <div class="form-group">
-                    <label>SĐT</label>
-                    <input
-                      placeholder="VD: 0123456789"
-                      oninvalid="this.setCustomValidity('Hãy điền vào trường này')"
-                      oninput="this.setCustomValidity('')"
-                      required
-                      type="number"
-                      name="phone"
-                      id="phone"
-                      class="form-control input-md"
-                    />
+                    <label>Khu vực</label>
+					  <select class="form-control input-md" id="area">
+						<option value="Hà Nội" selected>Hà Nội</option>
+						<option value="TPHCM">TPHCM</option>
+						<option value="Thái Nguyên">Thái Nguyên</option>
+						<option value="Lào Cai" >Lào Cai</option>
+					  </select>
+                  </div>
+                </div>
+                </div>
+
+				<div class="row ">
+                <div class="col-xs-6 col-sm-6 col-md-6">
+                  <div class="form-group">
+					<label>Chuyên khoa</label>
+					<select class="form-control input-md" id="field" >
+						<option value="Thần kinh" selected>Thần kinh</option>
+						<option value="Tâm lí">Tâm lí</option>
+						<option value="Tim mạch">Tim mạch</option>
+					</select>
+                  </div>
+                </div>
+                <div class="col-xs-6 col-sm-6 col-md-6">
+                  <div class="form-group">
+                    <label>Bác sĩ</label>
+					  <select class="form-control input-md" id="doctor-name">
+						<option value="Adam Taylor" selected >Adam Taylor</option>
+					  </select>
                   </div>
                 </div>
                 </div>
     
-                <input type="submit" value="Đồng ý" class="btn btn-skin btn-block btn-lg btn-form1" />
+                <input type="button" value="Đồng ý" class="btn btn-skin btn-block btn-lg btn-form4" />
     
                 <p class="lead-footer" style="margin-bottom: 10px">* Chúng tôi sẽ liên hệ cho bạn qua email hoặc SĐT</p>
                 
-                <span
-                  style="font-size: 16px; color: rgb(12, 94, 94); float: right; margin-left: 10px; cursor: pointer"
-                  class="switch-btn"
-                  href="#"
-                  >Đăng nhập</span
-                >
-                <span style="font-size: 16px; float:right;" class="lead-footer switch-text"> Đã có tài khoản?</span>
-                
+				<span
+                style="font-size: 16px; color: rgb(12, 94, 94); float: right; margin-top: 10px; cursor: pointer"
+                class="switch-btn-logout"
+                href="#"
+                >Đăng xuất</span
+              >
+			  <span
+                style="font-size: 16px; color: rgb(12, 94, 94); float: right; margin-top: 10px; margin-right: 15px; cursor: pointer"
+                class="switch-btn-check"
+                href="#"
+                >Xem lịch đã đặt</span
+              >
               </form>
             </div>
           </div>
         </div>`;
-    } else
-      html = `
+		} else
+			html = `
       <div class="wow fadeInRight" data-wow-duration="2s" data-wow-delay="0.2s">
       <div class="panel panel-skin">
         <div class="panel-heading">
@@ -220,102 +265,255 @@ function renderFormWhenLoginSuccess() {
               </div>
               </div>
   
-              <input type="submit" value="Đồng ý" class="btn btn-skin btn-block btn-lg btn-form2" />
+              <input type="button" value="Đồng ý" class="btn btn-skin btn-block btn-lg btn-form2" />
   
               <span
                 style="font-size: 16px; color: rgb(12, 94, 94); float: right; margin-top: 10px; cursor: pointer"
                 class="switch-btn-logout"
-                href="#"
-                >Đăng suất</span
-              >
+                >Đăng xuất</span
+			>
             </form>
           </div>
         </div>
       </div>
       `;
-  }
-  $(".form-wrapper").innerHTML = html;
+	}
+	$(".form-wrapper").innerHTML = html;
 }
 
+async function renderFinalList() {
+	const currentUser = auth.currentUser;
+	const userDocRef = doc(db, "users", currentUser.email);
+	let finalList;
+	const getFinalList = async () => {
+		const docSnap = await getDoc(userDocRef);
+		console.log(docSnap.data().list);
+		finalList = docSnap.data().list;
+	};
+	await getFinalList();
+
+	let html = `
+	<div class="wow fadeInRight" data-wow-duration="2s" data-wow-delay="0.2s">
+	<div class="panel panel-skin">
+	  <div class="panel-heading">
+		<h3 class="panel-title" style = "display: flex; justify-content: space-between; align-items: center;">
+		  <span><span class="fa fa-pencil-square-o"></span> Lịch của ${auth.currentUser.displayName}</span>
+		  <ul class="pagination justify-content-center" style = "margin: 0">
+			<li class="page-item" style = "font-size: 10px">
+				<a class="page-link" href="#" tabindex="-1">${"<"}</a>
+			</li>
+			<li class="page-item" style = "font-size: 10px"><a class="page-link" href="#">1</a></li>
+			<li class="page-item" style = "font-size: 10px"><a class="page-link" href="#">2</a></li>
+			<li class="page-item" style = "font-size: 10px"><a class="page-link" href="#">3</a></li>
+			<li class="page-item" style = "font-size: 10px">
+				<a class="page-link" href="#">${">"}</a>
+			</li>
+  		</ul>
+		</h3>
+	  </div>
+	  <div class="panel-body">
+		<form onsubmit="(e) => {e.preventDefault()}" role="form" class="lead form-2">
+		${finalList
+			?.slice(0, 5)
+			.map((item) => {
+				return `
+					<div class = "row">
+						<div class = "col-xs-12 col-sm-12 col-md-12">
+							<p style = "font-size: 16px; font-weight: 600;"><span class="fa fa-pencil-square-o" style="margin-right: 10px"></span>  ${item.area} <span style = "font-weight: lighter; color: #ddd">|</span> ${item.field} <span style = "font-weight: lighter; color: #ddd">|</span> ${item.doctors} <span style = "font-weight: lighter; color: #ddd">|</span> ${new Date(item.time).toLocaleDateString()} ${new Date(item.time).toLocaleTimeString()}</p>
+						</div>
+					</div>
+					`
+			})
+			.join("")}
+			<input type="button" value="Tiếp tục" class="btn btn-skin btn-block btn-lg btn-form3" />
+
+			<span
+			  style="font-size: 16px; color: rgb(12, 94, 94); float: right; margin-top: 10px; cursor: pointer"
+			  class="switch-btn-logout"
+			  href="#"
+			  >Đăng xuất</span
+			>
+		  </form>
+		</div>
+	  </div>
+	</div>
+	`;
+	$(".form-wrapper").innerHTML = html;
+}
 $(".form-wrapper").addEventListener("click", (e) => {
-  // e.preventDefault();
-  if (e.target.closest(".switch-btn")) {
-    isSignIn = !isSignIn;
-    console.log(isSignIn);
-    const innerSwitch = isSignIn ? ` Đã có tài khoản?` : ` Chưa có tài khoản?`;
-    const innerSwitchBtn = isSignIn ? ` Đăng nhập` : ` Đăng kí`;
-    $(".switch-text").innerText = innerSwitch;
-    $(".switch-btn").innerText = innerSwitchBtn;
-  } else if (e.target.closest(".switch-btn-logout")) {
-    signOut(auth)
-      .then(() => {
-        console.log("logout", auth.currentUser);
-        isSignIn = !isSignIn;
-        renderFormWhenLoginSuccess();
-      })
-      .catch((error) => {
-        // An error happened.
-      });
-  } else if (e.target.closest(".btn-form1")) {
-    // $('.form-1').preventDefault()
-    var regexEmail = /\w+([-+.']\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*/;
-    const email = $("#email");
-    const phone = $("#phone");
-    if (email.value.trim() === "" || phone.value.trim() === "")
-      alert("Hãy điền đầy đủ các trường");
-    if (email.value.trim() !== "" && !regexEmail.test(email.value))
-      alert("Hãy nhập email đúng format");
-    if (isSignIn)
-      createUserWithEmailAndPassword(auth, email.value, phone.value)
-        .then((userCredential) => {
-          // user = userCredential.user;
-          // console.log(user);
-          console.log("signup", auth.currentUser);
-          renderFormWhenLoginSuccess();
-        })
-        .catch((error) => {
-          const errorCode = error.code;
-          errorCode == "auth/email-already-in-use" &&
-            alert("Email đã tồn tại, hãy đăng nhập");
-        });
-    else
-      signInWithEmailAndPassword(auth, email.value, phone.value)
-        .then((userCredential) => {
-          // user = userCredential.user;
-          console.log("login", auth.currentUser);
-          renderFormWhenLoginSuccess();
-        })
-        .catch((error) => {
-          const errorCode = error.code;
-          const errorMessage = error.message;
-          console.log(errorCode);
-          errorCode == "auth/user-not-found" &&
-            alert("Tài khoản email không tồn tại");
-          errorCode == "auth/wrong-password" && alert("Sai mật khẩu");
-        });
-  } else if (e.target.closest(".btn-form2")) {
-    const first_name = $("#first_name").value;
-    const last_name = $("#last_name").value;
+	//   e.preventDefault();
+	if ($("#field")) {
+		$("#field").onchange = () => {
+			const filterKey = $("#field").value;
+			const doctorSelectArray = doctors.find((item) => item.hasOwnProperty(filterKey))[filterKey];
+			const innerDoctorSelectHTML = doctorSelectArray
+				.map((item) => {
+					return `
+					<option value="${item}" selected >${item}</option>
+				`;
+				})
+				.join("");
 
-    if (first_name.trim() === "" || last_name.trim() === "")
-      alert("Hãy điền đầy đủ các trường");
+			$("#doctor-name").innerHTML = innerDoctorSelectHTML;
+		};
+	}
+	if ($(".switch-btn-check")) {
+		$(".switch-btn-check").onclick = () => {
+			console.log("Switch");
+			renderFinalList();
+		};
+	}
+	if (e.target.closest(".switch-btn")) {
+		isSignIn = !isSignIn;
+		const innerSwitch = isSignIn ? ` Đã có tài khoản?` : ` Chưa có tài khoản?`;
+		const innerSwitchBtn = isSignIn ? ` Đăng nhập` : ` Đăng kí`;
+		$(".switch-text").innerText = innerSwitch;
+		$(".switch-btn").innerText = innerSwitchBtn;
+	} else if (e.target.closest(".switch-btn-check")) {
+		renderFinalList();
+	} else if (e.target.closest(".switch-btn-logout")) {
+		signOut(auth)
+			.then(() => {
+				isSignIn = !isSignIn;
+				renderFormWhenLoginSuccess();
+				// window.location.reload();
+			})
+			.catch((error) => {
+				// An error happened.
+			});
+	} else if (e.target.closest(".btn-form1")) {
+		// $('.form-1').preventDefault()
+		var regexEmail = /\w+([-+.']\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*/;
+		const email = $("#email");
+		const phone = $("#phone");
+		if (email.value.trim() === "" || phone.value.trim() === "") {
+			alert("Hãy điền đầy đủ các trường");
+			return;
+		}
+		if (email.value.trim() !== "" && !regexEmail.test(email.value)) {
+			alert("Hãy nhập email đúng format");
+			return;
+		}
+		if (isSignIn)
+			createUserWithEmailAndPassword(auth, email.value, phone.value)
+				.then((userCredential) => {
+					// user = userCredential.user;
+					// console.log(user);
+					renderFormWhenLoginSuccess();
+				})
+				.catch((error) => {
+					const errorCode = error.code;
+					errorCode == "auth/email-already-in-use" && alert("Email đã tồn tại, hãy đăng nhập");
+				});
+		else
+			signInWithEmailAndPassword(auth, email.value, phone.value)
+				.then((userCredential) => {
+					// user = userCredential.user;
+					renderFormWhenLoginSuccess();
+				})
+				.catch((error) => {
+					const errorCode = error.code;
+					const errorMessage = error.message;
+					errorCode == "auth/user-not-found" && alert("Tài khoản email không tồn tại");
+					errorCode == "auth/wrong-password" && alert("Sai mật khẩu");
+				});
+	} else if (e.target.closest(".btn-form2")) {
+		const first_name = $("#first_name").value;
+		const last_name = $("#last_name").value;
 
-    updateProfile(auth.currentUser, {
-      displayName: `${last_name} ${first_name}`,
-    })
-      .then(() => {
-        renderFormWhenLoginSuccess();
-      })
-      .catch((error) => {
-        // An error occurred
-        // ...
-      });
-  } else if (e.target.closest(".btn-form3")) {
-    console.log($('.btn-form3'))
-    isBooking = true;
-    renderFormWhenLoginSuccess()
-  }
+		if (first_name.trim() === "" || last_name.trim() === "") {
+			alert("Hãy điền đầy đủ thông tin");
+			return;
+		}
+
+		updateProfile(auth.currentUser, {
+			displayName: `${last_name} ${first_name}`,
+		})
+			.then(() => {
+				renderFormWhenLoginSuccess();
+			})
+			.catch((error) => {
+				// An error occurred
+				// ...
+			});
+	} else if (e.target.closest(".btn-form3")) {
+		isBooking = true;
+		renderFormWhenLoginSuccess();
+
+		let tomorrow = new Date();
+		tomorrow.setDate(tomorrow.getDate() + 1);
+		tomorrow = tomorrow.toISOString().slice(0, 16);
+
+		$("#date").setAttribute("min", tomorrow);
+	} else if (e.target.closest(".btn-form4")) {
+		const currentUser = auth.currentUser;
+		console.log(currentUser.email);
+		const selectedDate = $("#date").value;
+		const selectedArea = $("#area").value;
+		const selectedField = $("#field").value;
+		const selectedDoctors = $("#doctor-name").value;
+
+		if (!selectedDate || !selectedArea || !selectedField || !selectedDoctors) {
+			alert("Hãy điền đầy đủ thông tin");
+			return;
+		}
+
+		console.log(new Date(selectedDate));
+		console.log(selectedArea);
+		console.log(selectedField);
+		console.log(selectedDoctors);
+
+		console.log(serverTimestamp());
+
+		const userDocRef = doc(db, "users", currentUser.email);
+		const addList = async () => {
+			const docSnap = await getDoc(userDocRef);
+			if (!docSnap.exists()) {
+				addDocList();
+			} else {
+				console.log(docSnap.data());
+				updateDocList();
+			}
+		};
+		addList();
+
+		const addDocList = async () => {
+			try {
+				await setDoc(
+					userDocRef,
+					{
+						list: [
+							{
+								uid: new Date().toISOString(),
+								time: selectedDate,
+								area: selectedArea,
+								field: selectedField,
+								doctors: selectedDoctors,
+							},
+						],
+					},
+					{
+						merge: true,
+					}
+				);
+			} catch (e) {
+				console.error("Error adding document: ", e);
+			}
+		};
+
+		const updateDocList = async () => {
+			await updateDoc(userDocRef, {
+				list: arrayUnion({
+					uid: new Date().toISOString(),
+					time: selectedDate,
+					area: selectedArea,
+					field: selectedField,
+					doctors: selectedDoctors,
+				}),
+			});
+		};
+
+		renderFinalList();
+		// const element = <p>something</p>
+	}
 });
-{
-  /* <p style = "padding: 0px 5px; font-size: 18px;">Xin chào <label style = "font-size: 20px">${auth.currentUser.displayName}<label/></p> */
-}
