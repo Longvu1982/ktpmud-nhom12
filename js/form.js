@@ -15,6 +15,7 @@ import {
 	setDoc,
 	updateDoc,
 	arrayUnion,
+	arrayRemove,
 	serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/9.16.0/firebase-firestore.js";
 import { db } from "./firebase.js";
@@ -282,12 +283,11 @@ function renderFormWhenLoginSuccess() {
 }
 
 async function renderFinalList() {
+	let finalList;
 	const currentUser = auth.currentUser;
 	const userDocRef = doc(db, "users", currentUser.email);
-	let finalList;
 	const getFinalList = async () => {
 		const docSnap = await getDoc(userDocRef);
-		console.log(docSnap.data().list);
 		finalList = docSnap.data().list;
 	};
 	await getFinalList();
@@ -298,7 +298,7 @@ async function renderFinalList() {
 	  <div class="panel-heading">
 		<h3 class="panel-title" style = "display: flex; justify-content: space-between; align-items: center;">
 		  <span><span class="fa fa-pencil-square-o"></span> Lịch của ${auth.currentUser.displayName}</span>
-		  <ul class="pagination justify-content-center" style = "margin: 0">
+		  <!--<ul class="pagination justify-content-center" style = "margin: 0">
 			<li class="page-item" style = "font-size: 10px">
 				<a class="page-link" href="#" tabindex="-1">${"<"}</a>
 			</li>
@@ -308,23 +308,43 @@ async function renderFinalList() {
 			<li class="page-item" style = "font-size: 10px">
 				<a class="page-link" href="#">${">"}</a>
 			</li>
-  		</ul>
+  		</ul>-->
 		</h3>
 	  </div>
 	  <div class="panel-body">
 		<form onsubmit="(e) => {e.preventDefault()}" role="form" class="lead form-2">
-		${finalList
-			?.slice(0, 5)
-			.map((item) => {
-				return `
+		<div class="list-container" style="height: 250px; overflow-y:scroll; overflow-x: hidden">
+		${
+			finalList.length === 0
+				? "<p style ='font-size: 16px'><span class='fa fa-exclamation-circle' style='color: yellow; margin-right: 10px'></span>Không có lịch để hiển thị</p>"
+				: finalList
+						.map((item) => {
+							return `
 					<div class = "row">
-						<div class = "col-xs-12 col-sm-12 col-md-12">
-							<p style = "font-size: 16px; font-weight: 600;"><span class="fa fa-pencil-square-o" style="margin-right: 10px"></span>  ${item.area} <span style = "font-weight: lighter; color: #ddd">|</span> ${item.field} <span style = "font-weight: lighter; color: #ddd">|</span> ${item.doctors} <span style = "font-weight: lighter; color: #ddd">|</span> ${new Date(item.time).toLocaleDateString()} ${new Date(item.time).toLocaleTimeString()}</p>
+						<div class = "col-xs-12 col-sm-12 list-item col-md-12" style = "display: flex; align-items: start; margin-bottom: 10px; padding-right: 10px; height: 55px">
+						<span class="fa fa-calendar" style="margin-right: 15px; font-size: 16px; margin-top: 10px"></span>
+						<div style="width: 80%; flex-shrink: 0; flex-grow: 0;">
+							<p style = "font-size: 16px; font-weight: 600; margin: 0; line-height: 25px"></span>  ${
+								item.area
+							} <span style = "font-weight: lighter; color: #ddd">|</span> ${
+								item.field
+							} <span style = "font-weight: lighter; color: #ddd">|</span>
+								${item.doctors} 
+								<!--<span style = "font-weight: lighter; color: #ddd">|</span> </p>-->
+							<p style = "font-size: 16px; font-weight: 600; margin: 0; line-height: 25px">
+								 ${new Date(item.time).toLocaleDateString()} -  ${new Date(item.time).toLocaleTimeString()}
+							</p>
+						</div>	
+							<span class="fa fa-times list-item-edit" id="${
+								item.uid
+							}" style="font-size: 16px; justify-self: flex-end; margin-left: 25px; margin-top: 10px"></span>
 						</div>
 					</div>
-					`
-			})
-			.join("")}
+					`;
+						})
+						.join("")
+		}
+		</div>
 			<input type="button" value="Tiếp tục" class="btn btn-skin btn-block btn-lg btn-form3" />
 
 			<span
@@ -339,7 +359,23 @@ async function renderFinalList() {
 	</div>
 	`;
 	$(".form-wrapper").innerHTML = html;
+
+	//handle delete
+
+	const listDeleteBtns = $$(".list-item-edit");
+	listDeleteBtns.forEach((item, _index) => {
+		item.addEventListener("click", async () => {
+			const selectedDeleteListItem = finalList.find((selectedItem) => selectedItem.uid === item.id);
+			await updateDoc(userDocRef, {
+				list: arrayRemove(selectedDeleteListItem),
+			});
+			renderFinalList();
+			console.log(selectedDeleteListItem);
+		});
+	});
+	const selectedDeleteListItem = finalList.find((item) => item.uid);
 }
+
 $(".form-wrapper").addEventListener("click", (e) => {
 	//   e.preventDefault();
 	if ($("#field")) {
@@ -398,8 +434,20 @@ $(".form-wrapper").addEventListener("click", (e) => {
 			createUserWithEmailAndPassword(auth, email.value, phone.value)
 				.then((userCredential) => {
 					// user = userCredential.user;
-					// console.log(user);
-					renderFormWhenLoginSuccess();
+					console.log(userCredential);
+					const addInit = async () => {
+						await setDoc(
+							doc(db, "users", userCredential.user.email),
+							{
+								role: 1,
+								list: [],
+							},
+							{
+								merge: true,
+							}
+						);
+					};
+					addInit().then(renderFormWhenLoginSuccess());
 				})
 				.catch((error) => {
 					const errorCode = error.code;
@@ -409,7 +457,18 @@ $(".form-wrapper").addEventListener("click", (e) => {
 			signInWithEmailAndPassword(auth, email.value, phone.value)
 				.then((userCredential) => {
 					// user = userCredential.user;
-					renderFormWhenLoginSuccess();
+					const userDocRef = doc(db, "users", userCredential.user.email);
+					const checkRole = async () => {
+						const docSnap = await getDoc(userDocRef);
+						const role = docSnap.data().role;
+						console.log(role)
+						if (role === 2) {
+							alert("Sai tài khoản/ mật khẩu");
+							return;
+						} 
+						else renderFormWhenLoginSuccess()
+					};
+					checkRole()
 				})
 				.catch((error) => {
 					const errorCode = error.code;
@@ -511,9 +570,9 @@ $(".form-wrapper").addEventListener("click", (e) => {
 					doctors: selectedDoctors,
 				}),
 			});
+			renderFinalList();
 		};
 
-		renderFinalList();
 		// const element = <p>something</p>
 	}
 });
