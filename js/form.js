@@ -370,7 +370,6 @@ async function renderFinalList() {
 				list: arrayRemove(selectedDeleteListItem),
 			});
 			renderFinalList();
-			console.log(selectedDeleteListItem);
 		});
 	});
 	const selectedDeleteListItem = finalList.find((item) => item.uid);
@@ -395,7 +394,6 @@ $(".form-wrapper").addEventListener("click", (e) => {
 	}
 	if ($(".switch-btn-check")) {
 		$(".switch-btn-check").onclick = () => {
-			console.log("Switch");
 			renderFinalList();
 		};
 	}
@@ -412,7 +410,7 @@ $(".form-wrapper").addEventListener("click", (e) => {
 			.then(() => {
 				isSignIn = !isSignIn;
 				renderFormWhenLoginSuccess();
-				// window.location.reload();
+				window.location.reload();
 			})
 			.catch((error) => {
 				// An error happened.
@@ -434,7 +432,6 @@ $(".form-wrapper").addEventListener("click", (e) => {
 			createUserWithEmailAndPassword(auth, email.value, phone.value)
 				.then((userCredential) => {
 					// user = userCredential.user;
-					console.log(userCredential);
 					const addInit = async () => {
 						await setDoc(
 							doc(db, "users", userCredential.user.email),
@@ -461,14 +458,12 @@ $(".form-wrapper").addEventListener("click", (e) => {
 					const checkRole = async () => {
 						const docSnap = await getDoc(userDocRef);
 						const role = docSnap.data().role;
-						console.log(role)
 						if (role === 2) {
 							alert("Sai tài khoản/ mật khẩu");
 							return;
-						} 
-						else renderFormWhenLoginSuccess()
+						} else renderFormWhenLoginSuccess();
 					};
-					checkRole()
+					checkRole();
 				})
 				.catch((error) => {
 					const errorCode = error.code;
@@ -486,10 +481,29 @@ $(".form-wrapper").addEventListener("click", (e) => {
 		}
 
 		updateProfile(auth.currentUser, {
-			displayName: `${last_name} ${first_name}`,
+			displayName: `${first_name} ${last_name}`,
 		})
 			.then(() => {
-				renderFormWhenLoginSuccess();
+				// renderFormWhenLoginSuccess();
+				const userDocRef = doc(db, "users", auth.currentUser.email);
+
+				const addDocList = async () => {
+					try {
+						await setDoc(
+							userDocRef,
+							{
+								displayName: `${first_name} ${last_name}`
+							},
+							{
+								merge: true,
+							}
+						)
+						renderFormWhenLoginSuccess()
+					} catch (e) {
+						console.error("Error adding document: ", e);
+					}
+				};
+				addDocList();
 			})
 			.catch((error) => {
 				// An error occurred
@@ -506,7 +520,6 @@ $(".form-wrapper").addEventListener("click", (e) => {
 		$("#date").setAttribute("min", tomorrow);
 	} else if (e.target.closest(".btn-form4")) {
 		const currentUser = auth.currentUser;
-		console.log(currentUser.email);
 		const selectedDate = $("#date").value;
 		const selectedArea = $("#area").value;
 		const selectedField = $("#field").value;
@@ -517,12 +530,6 @@ $(".form-wrapper").addEventListener("click", (e) => {
 			return;
 		}
 
-		console.log(new Date(selectedDate));
-		console.log(selectedArea);
-		console.log(selectedField);
-		console.log(selectedDoctors);
-
-		console.log(serverTimestamp());
 
 		const userDocRef = doc(db, "users", currentUser.email);
 		const addList = async () => {
@@ -530,7 +537,6 @@ $(".form-wrapper").addEventListener("click", (e) => {
 			if (!docSnap.exists()) {
 				addDocList();
 			} else {
-				console.log(docSnap.data());
 				updateDocList();
 			}
 		};
